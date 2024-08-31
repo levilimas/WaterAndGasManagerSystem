@@ -34,6 +34,46 @@ class MeasurementController {
       }
     }
   }
+
+  async uploadImage(req: Request, res: Response): Promise<void> {
+    try {
+      const { image, customer_code, measure_datetime, measure_type } = req.body;
+
+      if (!image || !customer_code || !measure_datetime || !measure_type) {
+        res.status(400).json({ error: 'image, customer_code, measure_date_time, and measure_type são necessários' });
+        return;
+      }
+
+      if (!['WATER', 'GAS'].includes(measure_type)) {
+        res.status(400).json({ error: 'measureType must be either WATER or GAS' });
+        return;
+      }
+
+      const filePath = await MeasurementService.saveBase64Image(image, customer_code);
+
+      const measure_value = await MeasurementService.getMeasurementFromImage(image);
+
+      const measurementData: MeasurementDto = {
+        image: image,
+        customerCode: customer_code,
+        measureDatetime: new Date(measure_datetime),
+        measureType: measure_type,
+        filePath: filePath,
+        measureValue: measure_value,
+        confirmedMeasureValue: false
+      };
+
+      const newMeasurement = await MeasurementService.createMeasurement(measurementData);
+
+      res.status(200).json({ image_url: newMeasurement.filePath , measure_value: measure_value, measure_uuid: newMeasurement.id });
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        res.status(400).json({error: "An unexpected error occurred"});
+      } else {
+        res.status(500).json({ error: 'An unexpected error occurred' });
+      }
+    }
+  }
 }
 
 export default new MeasurementController();
